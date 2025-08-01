@@ -36,6 +36,14 @@ PATTERNS = [
         "name": "Trembling in place",
         "func": lambda: (rdm.randint(-15, 15), rdm.randint(-15, 15)),
     },
+    {
+        "name": "ADHS MODUS",
+        "func": lambda: (
+            rdm.randint(-screen_width // 2, screen_width // 2),
+            rdm.randint(-screen_height // 2, screen_height // 2),
+        ),
+        "fast_mode": True,
+    },
     {"name": "No movement (pause)", "func": lambda: (0, 0)},
 ]
 
@@ -80,7 +88,18 @@ def random_move_cursor():
         current_x, current_y = gui.position()
         target_x = max(0, min(current_x + move_x, screen_width - 1))
         target_y = max(0, min(current_y + move_y, screen_height - 1))
-        duration = rdm.uniform(0.4, 1.2)
+
+        fast_mode = False
+        for pattern in PATTERNS:
+            if pattern.get("func") == selected_pattern_func and pattern.get(
+                "fast_mode"
+            ):
+                fast_mode = True
+                break
+        if fast_mode:
+            duration = rdm.uniform(0.05, 0.15)
+        else:
+            duration = rdm.uniform(0.4, 1.2)
         gui.moveTo(target_x, target_y, duration=duration, tween=gui.easeInOutQuad)
     except Exception as e:
         print(f"Error during movement: {e}")
@@ -89,13 +108,20 @@ def random_move_cursor():
 
 def move_cursor_loop():
     print("Mouse movement loop started (ESC to exit)")
+    fast_mode = False
+    for pattern in PATTERNS:
+        if pattern.get("func") == selected_pattern_func and pattern.get("fast_mode"):
+            fast_mode = True
+            break
     while not shutdown_event.is_set():
         try:
             if not is_cursor_in_bounds(*gui.position()):
                 reset_cursor_position()
             random_move_cursor()
-            wait_time = rdm.uniform(1.0, 3.0)
-            shutdown_event.wait(wait_time)
+            if not fast_mode:
+                wait_time = rdm.uniform(1.0, 3.0)
+                shutdown_event.wait(wait_time)
+
         except Exception as e:
             print(f"Error in main loop: {e}")
             reset_cursor_position()
@@ -122,7 +148,7 @@ def create_gui():
     gui_closed = False
     root = tk.Tk()
     root.title("Mausbewegungs-Muster")
-    root.geometry("400x450")
+    root.geometry("500x600")
     root.resizable(False, False)
     root.configure(bg="#2E2E2E")
 
