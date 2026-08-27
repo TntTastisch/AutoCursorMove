@@ -26,6 +26,14 @@ A sophisticated tool that automatically moves your mouse cursor on the screen wi
 - Automatic cursor centering on errors
 - Improved shutdown response
 
+## Command line
+Run from source with a pattern preselected (skips the selection window):
+```
+python3 main.py --pattern large
+python3 main.py --list-patterns
+```
+Available keys: `small`, `large`, `horizontal`, `vertical`, `diagonal`, `tremble`, `adhs`, `pause`.
+
 ## Controls
 - **ESC**: Press to stop the program cleanly (responds within 0.1 seconds)
 - **Ctrl+C**: Emergency stop (in console window)
