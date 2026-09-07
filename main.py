@@ -1,3 +1,4 @@
+import argparse
 import random as rdm
 import time
 import tkinter as tk
@@ -19,24 +20,37 @@ screen_width, screen_height = gui.size()
 
 PATTERNS = [
     {
+        "key": "small",
         "name": "Small random movement",
         "func": lambda: (rdm.randint(-100, 100), rdm.randint(-100, 100)),
     },
     {
+        "key": "large",
         "name": "Large random movement",
         "func": lambda: (rdm.randint(-300, 300), rdm.randint(-300, 300)),
     },
-    {"name": "Horizontal movement", "func": lambda: (rdm.randint(-150, 150), 0)},
-    {"name": "Vertical movement", "func": lambda: (0, rdm.randint(-150, 150))},
     {
+        "key": "horizontal",
+        "name": "Horizontal movement",
+        "func": lambda: (rdm.randint(-150, 150), 0),
+    },
+    {
+        "key": "vertical",
+        "name": "Vertical movement",
+        "func": lambda: (0, rdm.randint(-150, 150)),
+    },
+    {
+        "key": "diagonal",
         "name": "Diagonal jumps",
         "func": lambda: (rdm.choice([-200, 200]), rdm.choice([-200, 200])),
     },
     {
+        "key": "tremble",
         "name": "Trembling in place",
         "func": lambda: (rdm.randint(-15, 15), rdm.randint(-15, 15)),
     },
     {
+        "key": "adhs",
         "name": "ADHS MODUS",
         "func": lambda: (
             rdm.randint(-screen_width // 2, screen_width // 2),
@@ -44,7 +58,7 @@ PATTERNS = [
         ),
         "fast_mode": True,
     },
-    {"name": "No movement (pause)", "func": lambda: (0, 0)},
+    {"key": "pause", "name": "No movement (pause)", "func": lambda: (0, 0)},
 ]
 
 
@@ -143,6 +157,36 @@ def start_movement(pattern_func, root):
     movement_thread.start()
 
 
+def start_movement_headless(pattern_func):
+    global selected_pattern_func, gui_closed
+    selected_pattern_func = pattern_func
+    gui_closed = True
+    kb.unhook_all()
+    kb.on_press(on_shutdown_event)
+    move_cursor_loop()
+
+
+def find_pattern(key):
+    for pattern in PATTERNS:
+        if pattern["key"] == key.lower():
+            return pattern
+    return None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Automatically move the mouse cursor.")
+    parser.add_argument(
+        "-p",
+        "--pattern",
+        choices=[p["key"] for p in PATTERNS],
+        help="start immediately with this movement pattern (skips the GUI)",
+    )
+    parser.add_argument(
+        "--list-patterns", action="store_true", help="list available patterns and exit"
+    )
+    return parser.parse_args()
+
+
 def create_gui():
     global gui_closed
     gui_closed = False
@@ -209,16 +253,28 @@ def create_gui():
 
 
 if __name__ == "__main__":
+    args = parse_args()
+    if args.list_patterns:
+        for pattern in PATTERNS:
+            print(f"{pattern['key']:<12} {pattern['name']}")
+        raise SystemExit(0)
     try:
         print(f"Screen size: {screen_width}x{screen_height}")
-        while not exit_program_event.is_set():
-            shutdown_event.clear()
-            create_gui()
-            if exit_program_event.is_set():
-                break
-            while not shutdown_event.is_set():
-                time.sleep(0.2)
-            gui_closed = False
+        if args.pattern:
+            pattern = find_pattern(args.pattern)
+            print(f"Pattern '{pattern['name']}' selected via --pattern.")
+            start_movement_headless(pattern["func"])
+        else:
+            while not exit_program_event.is_set():
+                shutdown_event.clear()
+                create_gui()
+                if exit_program_event.is_set():
+                    break
+                while not shutdown_event.is_set():
+                    time.sleep(0.2)
+                gui_closed = False
+    except KeyboardInterrupt:
+        print("\nCtrl+C pressed, stopping...")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
