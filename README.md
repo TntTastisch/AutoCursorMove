@@ -1,65 +1,70 @@
 # Cursor Auto-Mover
-A sophisticated tool that automatically moves your mouse cursor on the screen with various movement patterns.
+
+A small tool that automatically moves your mouse cursor across the screen using
+various movement patterns. Useful for keeping a machine "active" (anti-idle),
+demos, or testing.
+
+## Requirements
+- Python 3.8+
+- The dependencies listed in `requirements.txt` (mainly [PyAutoGUI](https://pypi.org/project/PyAutoGUI/) and [keyboard](https://pypi.org/project/keyboard/))
+
+Install them with:
+```
+pip install -r requirements.txt
+```
+
+> On Linux the `keyboard` library needs root privileges to capture the ESC key.
+> On Windows this is usually not required.
 
 ## Quick Start
-1. Double-click the `.exe` file to run
-2. The cursor will start moving automatically with:
-    - Random movement patterns
-    - Variable timing between moves
-    - Automatic error recovery
-    - Screen boundary protection
-
-## Features
-- Multiple movement patterns:
-    - Small random movements
-    - Larger jumps
-    - Occasional pauses
-    - Trembling movements
-    - Diagonal jumps
-    - Horizontal movements
-    - Vertical movements
-    - Directed jumps
-- Variable movement speeds (0.3-0.9 seconds per movement)
-- Random wait times between movements (0.8-2.0 seconds)
-- Occasional longer breaks (2-4 seconds)
-- 5% chance of trembling effect with reduced amplitude
-- Automatic cursor centering on errors
-- Improved shutdown response
-
-## Command line
-Run from source with a pattern preselected (skips the selection window):
+Run the program from source:
 ```
-python3 main.py --pattern large
-python3 main.py --list-patterns
+python main.py
 ```
-Available keys: `small`, `large`, `horizontal`, `vertical`, `diagonal`, `tremble`, `adhs`, `pause`.
+A small window opens where you can pick a movement pattern. As soon as you click
+a pattern, the window closes and the cursor starts moving. Press **ESC** at any
+time to stop.
+
+## Movement Patterns
+| Key          | Pattern                     | Description                                              |
+|--------------|-----------------------------|----------------------------------------------------------|
+| `small`      | Small random movement       | Offsets of -100..100 px on both axes                     |
+| `large`      | Large random movement       | Offsets of -300..300 px on both axes                     |
+| `horizontal` | Horizontal movement         | Moves left/right only (-150..150 px)                     |
+| `vertical`   | Vertical movement           | Moves up/down only (-150..150 px)                        |
+| `diagonal`   | Diagonal jumps              | Fixed ±200 px jumps on both axes                         |
+| `tremble`    | Trembling in place          | Tiny jitter of -15..15 px                                |
+| `adhs`       | ADHS mode                   | Large, fast jumps across half the screen                 |
+| `pause`      | No movement (pause)         | Cursor stays put                                         |
+
+Movements are smoothly interpolated. Normal patterns use a per-move duration of
+~0.4–1.2 s with a 1–3 s wait between moves; the `adhs` pattern runs continuously
+with a ~0.05–0.15 s duration per move.
+
+## Command Line
+You can preselect a pattern and skip the selection window:
+```
+python main.py --pattern large      # start immediately with the "large" pattern
+python main.py --list-patterns      # print all available pattern keys and exit
+```
+Available keys: `small`, `large`, `horizontal`, `vertical`, `diagonal`,
+`tremble`, `adhs`, `pause`.
 
 ## Controls
-- **ESC**: Press to stop the program cleanly (responds within 0.1 seconds)
-- **Ctrl+C**: Emergency stop (in console window)
+- **ESC**: Stop the movement cleanly (once the GUI has closed / movement has started)
+- **Ctrl+C**: Emergency stop from the console
+- Closing the pattern window exits the program
 
-## What to Expect
-- A console window showing detailed movement information
-- Random cursor movements with varying patterns and speeds
-- Step-by-step movement tracking in console
-- Automatic recovery from errors by resetting to screen center
-- Screen boundary protection to prevent cursor loss
-- Immediate response to stop command
+## Safety & Recovery
+- Cursor stays within the screen bounds; if it ever ends up out of bounds it is
+  reset to the screen center.
+- `pyautogui.FAILSAFE` is disabled so the program does not abort when the cursor
+  reaches a screen corner — use **ESC** to stop instead.
+- Built-in error handling keeps the loop running and recenters the cursor on
+  unexpected errors.
 
 ## Troubleshooting
-If the program isn't working:
-- Make sure you have administrator rights
-- Check if your antivirus isn't blocking it
-- If console closes immediately, run it from command prompt to see error messages
-- If cursor gets stuck, it will automatically reset to screen center
-- If shutdown seems slow, press ESC again (though one press should be sufficient)
-
-## Notes
-- Keep the console window open while running
-- The program has built-in error handling and recovery
-- Movements are designed to be unpredictable but safe
-- Program responds quickly to ESC key
-- Movement patterns are smoothly interpolated
-- Built-in failsafe mechanisms prevent cursor from getting stuck
-
-That's all you need to know! Just run and press ESC when you want to stop.
+- If the console closes immediately, run it from a terminal to see error output.
+- Make sure the dependencies are installed (`pip install -r requirements.txt`).
+- On Linux, run with the privileges needed for the `keyboard` library to capture ESC.
+- If the cursor seems stuck, it will automatically reset to the screen center.
