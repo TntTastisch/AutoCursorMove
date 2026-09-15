@@ -12,6 +12,7 @@ import pyautogui as gui
 shutdown_event = Event()
 exit_program_event = Event()
 selected_pattern_func = None
+movement_thread = None
 gui.FAILSAFE = False
 gui.PAUSE = 0.05
 
@@ -144,7 +145,7 @@ def move_cursor_loop():
 
 
 def start_movement(pattern_func, root):
-    global selected_pattern_func, gui_closed
+    global selected_pattern_func, gui_closed, movement_thread
     selected_pattern_func = pattern_func
     gui_closed = True
     print(f"Pattern selected. Starting movement...")
@@ -272,6 +273,11 @@ if __name__ == "__main__":
                     break
                 while not shutdown_event.is_set():
                     time.sleep(0.2)
+                # Wait for the old movement thread to fully stop before the
+                # next iteration clears shutdown_event again. Otherwise the
+                # thread could see the event cleared and keep moving the cursor.
+                if movement_thread is not None:
+                    movement_thread.join()
                 gui_closed = False
     except KeyboardInterrupt:
         print("\nCtrl+C pressed, stopping...")
