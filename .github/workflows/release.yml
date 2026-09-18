@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: windows-x86_64
+            os: windows-latest
+            binary: autocursormove.exe
+            asset: autocursormove.exe
+          - target: linux-amd64
+            os: ubuntu-22.04
+            binary: autocursormove
+            asset: autocursormove-linux-amd64.tar.gz
+          - target: macos-arm64
+            os: macos-latest
+            binary: autocursormove
+            asset: autocursormove-macos-arm64.tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build binary (Windows)
+        if: runner.os == 'Windows'
+        run: pyinstaller --onefile --name autocursormove --icon favicon123.ico main.py
+
+      - name: Build binary (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: pyinstaller --onefile --name autocursormove main.py
+
+      - name: Package asset (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: cp dist/${{ matrix.binary }} ${{ matrix.asset }}
+
+      - name: Package asset (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: tar -czf ${{ matrix.asset }} -C dist ${{ matrix.binary }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ matrix.asset }}
+
+  release:
+    name: Create release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}-RELEASE
+          generate_release_notes: true
+          files: assets/*
