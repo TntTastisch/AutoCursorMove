@@ -4,6 +4,13 @@ A small tool that automatically moves your mouse cursor across the screen using
 various movement patterns. Useful for keeping a machine "active" (anti-idle),
 demos, or testing.
 
+## Download
+Prebuilt binaries for Windows, Linux and macOS are attached to every
+[release](https://github.com/TntTastisch/AutoCursorMove/releases) and are built
+automatically whenever a version tag is pushed. Download the file for your
+platform and run it — no Python installation required. To run from source
+instead, see [Quick Start](#quick-start) below.
+
 ## Requirements
 - Python 3.8+
 - The dependencies listed in `requirements.txt` (mainly [PyAutoGUI](https://pypi.org/project/PyAutoGUI/) and [keyboard](https://pypi.org/project/keyboard/))
@@ -21,9 +28,9 @@ Run the program from source:
 ```
 python main.py
 ```
-A small window opens where you can pick a movement pattern. As soon as you click
-a pattern, the window closes and the cursor starts moving. Press **ESC** at any
-time to stop.
+A small window (showing the application icon) opens where you can pick a movement
+pattern. As soon as you click a pattern, the window closes and the cursor starts
+moving. Press **ESC** at any time to stop.
 
 ## Movement Patterns
 | Key          | Pattern                     | Description                                              |
@@ -53,7 +60,15 @@ Available keys: `small`, `large`, `horizontal`, `vertical`, `diagonal`,
 ## Controls
 - **ESC**: Stop the movement cleanly (once the GUI has closed / movement has started)
 - **Ctrl+C**: Emergency stop from the console
+- **Move the mouse yourself**: the automation pauses and resumes shortly after you stop (see [Manual Override](#manual-override))
 - Closing the pattern window exits the program
+
+## Manual Override
+You stay in control at all times. If you move the mouse yourself while a pattern
+is running, the tool notices the cursor being pulled away from where it left it
+and **pauses** the automation. It resumes automatically once the mouse has been
+still for about 3 seconds, so it never fights you for the pointer. This works for
+every pattern, including the fast `adhs` mode.
 
 ## Safety & Recovery
 - Cursor stays within the screen bounds; if it ever ends up out of bounds it is
