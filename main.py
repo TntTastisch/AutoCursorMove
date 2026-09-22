@@ -288,7 +288,9 @@ def create_gui():
     root = tk.Tk()
     root.title("Mausbewegungs-Muster")
     try:
-        root.iconbitmap(_resource_path(ICON_FILE))
+        # Tk is picky about Windows path separators; forward slashes work
+        # everywhere and avoid backslash-escaping surprises.
+        root.iconbitmap(_resource_path(ICON_FILE).replace("\\", "/"))
     except Exception as e:
         print(f"Could not load window icon: {e}")
     root.geometry("500x600")
