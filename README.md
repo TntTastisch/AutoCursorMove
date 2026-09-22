@@ -41,7 +41,7 @@ moving. Press **ESC** at any time to stop.
 | `vertical`   | Vertical movement           | Moves up/down only (-150..150 px)                        |
 | `diagonal`   | Diagonal jumps              | Fixed ±200 px jumps on both axes                         |
 | `tremble`    | Trembling in place          | Tiny jitter of -15..15 px                                |
-| `adhs`       | ADHS mode                   | Large, fast jumps across half the screen                 |
+| `adhs`       | ADHD mode                   | Large, fast jumps across half the screen                 |
 | `pause`      | No movement (pause)         | Cursor stays put                                         |
 
 Movements are smoothly interpolated. Normal patterns use a per-move duration of

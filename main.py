@@ -29,8 +29,11 @@ MANUAL_OVERRIDE_THRESHOLD = 8
 IDLE_MOVEMENT_THRESHOLD = 3
 RESUME_AFTER_IDLE = 3.0
 
-# Bundled window/taskbar icon (also used as the .exe icon via AutoCursorMove.spec).
+# Bundled window/taskbar icons. Windows uses the .ico (also the .exe icon via
+# AutoCursorMove.spec); Linux/macOS use the PNG via iconphoto, since Tk only
+# understands .ico files on Windows.
 ICON_FILE = "favicon123.ico"
+ICON_PNG = "favicon123.png"
 
 
 PATTERNS = [
@@ -66,7 +69,7 @@ PATTERNS = [
     },
     {
         "key": "adhs",
-        "name": "ADHS MODUS",
+        "name": "ADHD MODE",
         "func": lambda: (
             rdm.randint(-screen_width // 2, screen_width // 2),
             rdm.randint(-screen_height // 2, screen_height // 2),
@@ -97,6 +100,25 @@ def _resource_path(relative):
     PyInstaller one-file build (which unpacks data into sys._MEIPASS)."""
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, relative)
+
+
+def _set_window_icon(root):
+    """Set the window/taskbar icon in a platform-appropriate way: .ico via
+    iconbitmap on Windows, PNG via iconphoto elsewhere (X11 window managers
+    pick it up; macOS title bars have no icon, so it is a harmless no-op)."""
+    try:
+        if sys.platform == "win32":
+            # Tk is picky about Windows path separators; forward slashes work
+            # everywhere and avoid backslash-escaping surprises.
+            root.iconbitmap(_resource_path(ICON_FILE).replace("\\", "/"))
+        else:
+            icon = tk.PhotoImage(file=_resource_path(ICON_PNG))
+            root.iconphoto(True, icon)
+            # Keep a reference, otherwise Tkinter garbage-collects the image
+            # and the icon silently disappears.
+            root._icon_image = icon
+    except Exception as e:
+        print(f"Could not load window icon: {e}")
 
 
 def _set_windows_app_id():
@@ -286,13 +308,8 @@ def create_gui():
     global gui_closed
     gui_closed = False
     root = tk.Tk()
-    root.title("Mausbewegungs-Muster")
-    try:
-        # Tk is picky about Windows path separators; forward slashes work
-        # everywhere and avoid backslash-escaping surprises.
-        root.iconbitmap(_resource_path(ICON_FILE).replace("\\", "/"))
-    except Exception as e:
-        print(f"Could not load window icon: {e}")
+    root.title("Mouse Movement Patterns")
+    _set_window_icon(root)
     root.geometry("500x600")
     root.resizable(False, False)
     root.configure(bg="#2E2E2E")
@@ -321,7 +338,7 @@ def create_gui():
 
     main_frame = ttk.Frame(root, padding="20")
     main_frame.pack(expand=True, fill="both")
-    title_label = ttk.Label(main_frame, text="Wähle ein Bewegungsmuster")
+    title_label = ttk.Label(main_frame, text="Choose a movement pattern")
     title_label.pack(pady=(0, 20))
 
     for pattern in PATTERNS:

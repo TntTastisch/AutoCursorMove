@@ -47,7 +47,7 @@ jobs:
 
       - name: Build binary (Linux / macOS)
         if: runner.os != 'Windows'
-        run: pyinstaller --onefile --name autocursormove main.py
+        run: pyinstaller --onefile --name autocursormove --add-data "favicon123.png:." main.py
 
       - name: Package asset (Windows)
         if: runner.os == 'Windows'
