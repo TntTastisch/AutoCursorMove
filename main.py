@@ -1,5 +1,7 @@
 import argparse
+import os
 import random as rdm
+import sys
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -17,6 +19,18 @@ gui.FAILSAFE = False
 gui.PAUSE = 0.05
 
 screen_width, screen_height = gui.size()
+
+# Manual-override handling: if the user grabs the mouse while the automation is
+# running, the cursor drifts away from where the automation last left it. When
+# that drift exceeds MANUAL_OVERRIDE_THRESHOLD pixels we hand control back to the
+# user and only resume once the mouse has stayed still for RESUME_AFTER_IDLE
+# seconds (any movement larger than IDLE_MOVEMENT_THRESHOLD counts as "active").
+MANUAL_OVERRIDE_THRESHOLD = 8
+IDLE_MOVEMENT_THRESHOLD = 3
+RESUME_AFTER_IDLE = 3.0
+
+# Bundled window/taskbar icon (also used as the .exe icon via AutoCursorMove.spec).
+ICON_FILE = "favicon123.ico"
 
 
 PATTERNS = [
@@ -66,6 +80,38 @@ PATTERNS = [
 gui_closed = False
 
 
+def _cursor_delta(a, b):
+    """Largest per-axis distance in pixels between two cursor positions."""
+    return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
+
+
+def _is_fast_mode(func):
+    for pattern in PATTERNS:
+        if pattern.get("func") == func and pattern.get("fast_mode"):
+            return True
+    return False
+
+
+def _resource_path(relative):
+    """Resolve a bundled file both when run from source and from a
+    PyInstaller one-file build (which unpacks data into sys._MEIPASS)."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, relative)
+
+
+def _set_windows_app_id():
+    """Give the process its own taskbar identity so Windows shows our custom
+    icon instead of the generic Python one. No-op on non-Windows platforms."""
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "TntTastisch.AutoCursorMove"
+        )
+    except Exception:
+        pass
+
+
 def on_shutdown_event(event):
     global gui_closed
 
@@ -97,45 +143,93 @@ def reset_cursor_position():
 
 def random_move_cursor():
     if shutdown_event.is_set() or not selected_pattern_func:
-        return
+        return None
     try:
         move_x, move_y = selected_pattern_func()
         current_x, current_y = gui.position()
         target_x = max(0, min(current_x + move_x, screen_width - 1))
         target_y = max(0, min(current_y + move_y, screen_height - 1))
 
-        fast_mode = False
-        for pattern in PATTERNS:
-            if pattern.get("func") == selected_pattern_func and pattern.get(
-                "fast_mode"
-            ):
-                fast_mode = True
-                break
-        if fast_mode:
+        if _is_fast_mode(selected_pattern_func):
             duration = rdm.uniform(0.05, 0.15)
         else:
             duration = rdm.uniform(0.4, 1.2)
         gui.moveTo(target_x, target_y, duration=duration, tween=gui.easeInOutQuad)
+        return (target_x, target_y)
     except Exception as e:
         print(f"Error during movement: {e}")
         reset_cursor_position()
+        return None
+
+
+def _sleep_watching_for_override(baseline, wait_time):
+    """Sleep up to wait_time seconds between automated moves. Return True as
+    soon as the cursor drifts more than MANUAL_OVERRIDE_THRESHOLD pixels away
+    from `baseline` (where the automation last left it) -- i.e. the user grabbed
+    the mouse -- otherwise return False once the wait has elapsed."""
+    end = time.monotonic() + wait_time
+    while not shutdown_event.is_set():
+        try:
+            if _cursor_delta(gui.position(), baseline) > MANUAL_OVERRIDE_THRESHOLD:
+                return True
+        except Exception:
+            pass
+        remaining = end - time.monotonic()
+        if remaining <= 0:
+            return False
+        shutdown_event.wait(min(0.05, remaining))
+    return False
+
+
+def wait_for_manual_release():
+    """Pause the automation while the user is controlling the mouse. Blocks
+    until the cursor has stayed still for RESUME_AFTER_IDLE seconds (or ESC is
+    pressed) and returns a fresh baseline position for the movement loop."""
+    print(
+        f"Manual mouse movement detected - pausing automation "
+        f"(resumes {RESUME_AFTER_IDLE:.0f}s after you stop moving)."
+    )
+    try:
+        last_pos = gui.position()
+    except Exception:
+        last_pos = (screen_width // 2, screen_height // 2)
+    still_since = time.monotonic()
+    while not shutdown_event.is_set():
+        shutdown_event.wait(0.05)
+        if shutdown_event.is_set():
+            break
+        try:
+            current = gui.position()
+        except Exception:
+            continue
+        if _cursor_delta(current, last_pos) > IDLE_MOVEMENT_THRESHOLD:
+            # Still moving -- reset the idle timer.
+            last_pos = current
+            still_since = time.monotonic()
+        elif time.monotonic() - still_since >= RESUME_AFTER_IDLE:
+            print("Mouse idle - resuming automation.")
+            return current
+    return last_pos
 
 
 def move_cursor_loop():
     print("Mouse movement loop started (ESC to exit)")
-    fast_mode = False
-    for pattern in PATTERNS:
-        if pattern.get("func") == selected_pattern_func and pattern.get("fast_mode"):
-            fast_mode = True
-            break
+    fast_mode = _is_fast_mode(selected_pattern_func)
+    try:
+        last_auto_pos = gui.position()
+    except Exception:
+        last_auto_pos = (screen_width // 2, screen_height // 2)
     while not shutdown_event.is_set():
         try:
             if not is_cursor_in_bounds(*gui.position()):
                 reset_cursor_position()
-            random_move_cursor()
-            if not fast_mode:
-                wait_time = rdm.uniform(1.0, 3.0)
-                shutdown_event.wait(wait_time)
+            target = random_move_cursor()
+            if target is not None:
+                last_auto_pos = target
+
+            wait_time = rdm.uniform(0.05, 0.15) if fast_mode else rdm.uniform(1.0, 3.0)
+            if _sleep_watching_for_override(last_auto_pos, wait_time):
+                last_auto_pos = wait_for_manual_release()
 
         except Exception as e:
             print(f"Error in main loop: {e}")
@@ -193,6 +287,10 @@ def create_gui():
     gui_closed = False
     root = tk.Tk()
     root.title("Mausbewegungs-Muster")
+    try:
+        root.iconbitmap(_resource_path(ICON_FILE))
+    except Exception as e:
+        print(f"Could not load window icon: {e}")
     root.geometry("500x600")
     root.resizable(False, False)
     root.configure(bg="#2E2E2E")
@@ -254,6 +352,7 @@ def create_gui():
 
 
 if __name__ == "__main__":
+    _set_windows_app_id()
     args = parse_args()
     if args.list_patterns:
         for pattern in PATTERNS:
